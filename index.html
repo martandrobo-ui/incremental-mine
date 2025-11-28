@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incremental Miner</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #333;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            width: 90%;
+            max-width: 1200px;
+            gap: 20px;
+        }
+
+        .left-panel {
+            flex: 0 0 150px; 
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .game-area, .upgrades {
+            background-color: #222;
+            padding: 15px;
+            border: 3px solid #555;
+            border-radius: 8px;
+        }
+
+        .game-area {
+            flex: 2;
+            text-align: center;
+        }
+
+        .upgrades {
+            flex: 1;
+        }
+
+        h1 {
+            color: #ffcc00;
+            margin-top: 0;
+            border-bottom: 2px solid #555;
+            padding-bottom: 10px;
+        }
+        
+        /* Style for the WIP notice */
+        .wip-notice {
+            background-color: #8b0000; /* Dark Red */
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border: 2px solid #ff4500;
+        }
+
+        .menu-button, #mineButton {
+            background-color: #007bb5;
+            color: white;
+            padding: 10px;
+            font-size: 16px;
+            border: 3px solid #005f8f;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+        
+        #mineButton {
+            background-color: #a0522d; 
+            padding: 15px 30px;
+            font-size: 24px;
+            border: 5px solid #8b4513;
+            margin-top: 20px;
+        }
+
+        #mineButton:hover {
+            background-color: #8b4513;
+        }
+
+        #mineButton:active {
+            transform: translateY(2px);
+        }
+
+        .stat {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        
+        /* New Stat for Rebirth Multiplier */
+        #rebirthStat {
+            font-size: 20px;
+            color: #ff4500; 
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .log {
+            height: 200px;
+            overflow-y: scroll;
+            background-color: #111;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: left;
+            margin-top: 15px;
+        }
+
+        .upgrade-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #444;
+        }
+
+        .upgrade-item .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .upgrade-item button {
+            background-color: #008cba;
+            color: white;
+            border: none;
+            padding: 8px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.1s;
+        }
+        
+        .upgrade-item .equip-button {
+            background-color: #4CAF50; 
+        }
+
+        .upgrade-item .equip-button.equipped {
+            background-color: #FFA500; 
+        }
+
+
+        .upgrade-item button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+
+        .upgrade-item button:hover:enabled {
+            background-color: #007bb5;
+        }
+
+        /* --- Global Event Style --- */
+        .global-event {
+            background-color: #800080;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 5px #ff00ff; }
+            50% { box-shadow: 0 0 20px #ff00ff; }
+            100% { box-shadow: 0 0 5px #ff00ff; }
+        }
+
+        /* --- Modal Styling --- */
+        .modal {
+            position: fixed;
+            z-index: 10;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            display: none; 
+        }
+
+        .modal-content {
+            background-color: #222;
+            margin: 10% auto;
+            padding: 20px;
+            border: 3px solid #555;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 10px;
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-button:hover, .close-button:focus {
+            color: white;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        #saveButton, #rebirthButton {
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        
+        #saveButton {
+            background-color: #4CAF50;
+        }
+        
+        #rebirthButton {
+            background-color: #ff4500;
+        }
+
+        #nameChangeContainer {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed #555;
+        }
+        
+        .rebirth-container {
+            margin-top: 20px;
+            padding: 15px;
+            border: 2px solid #ff4500;
+            border-radius: 5px;
+            background-color: #301000;
+        }
+
+        #leaderboardContent {
+            white-space: pre-wrap;
+            text-align: left;
+            padding: 10px;
+            background-color: #111;
+            border-radius: 5px;
+        }
+
+    </style>
+</head>
+<body onload="init()">
+
+<div class="container">
+    <div class="left-panel">
+        <div class="stat">
+            Miner: <span id="usernameDisplay"></span>
+        </div>
+        <button class="menu-button" onclick="showStatsModal()">📊 Stats & Save</button>
+        <button class="menu-button" onclick="showLeaderboardModal()">🏆 Leaderboard</button>
+    </div>
+    
+    <div class="game-area">
+        <h1>⛏️ Incremental Miner 💎</h1>
+        
+        <div class="wip-notice">
+            ⚠️ **Game in WIP:** If pickaxe purchase buttons are disabled after hitting the required cash, **please refresh your page** to update the store!
+        </div>
+
+        <div class="stat" id="rebirthStat">
+            Rebirth Multiplier: <span id="rebirthMultiplierDisplay">1.0</span>x (Level: <span id="rebirthLevelDisplay">0</span>)
+        </div>
+
+        <div class="stat">
+            Cash: $<span id="cash">0</span>
+        </div>
+        <div class="stat">
+            Current Pickaxe: <span id="currentPickaxe">Wooden Pickaxe</span> (Cash Multiplier: <span id="pickaxeMultiplier">1.0</span>x)
+        </div>
+        <div class="stat">
+            Odds Multiplier: <span id="oddsMultiplier">1.00</span>x
+        </div>
+        <div class="stat">
+            Clicks until Mine: <span id="clicksLeft">3</span>
+        </div>
+        <div class="stat">
+            <span id="coalBonusStatus">Coal Bonus: Disabled</span>
+        </div>
+
+        <button id="mineButton">Click to Swing Pickaxe!</button>
+
+        <h2>Mining Log</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <div class="upgrades">
+        <h2>🔧 Pickaxe Upgrades</h2>
+        <div id="upgradesList">
+            </div>
+    </div>
+</div>
+
+<div id="statsModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeModal('statsModal')">&times;</span>
+        <h2>📊 Player Statistics</h2>
+        <p>Current Name: **<span id="statsName"></span>**</p>
+        <p>Time Played: **<span id="timePlayed"></span>**</p>
+        <p>Cash: **$<span id="statsCash"></span>**</p>
+        <p>Pickaxe: **<span id="statsPickaxe"></span>**</p>
+        <p>Rebirth Level: **<span id="statsRebirthLevel"></span>**</p>
+        <p>Total Rebirth Multiplier: **<span id="statsRebirthMultiplier"></span>**x</p>
+        
+        <button id="saveButton" onclick="saveGame()">💾 SAVE YOUR PROGRESS</button>
+        <p id="saveMessage" style="color: yellow;"></p>
+
+        <div class="rebirth-container">
+            <h3>🌟 Rebirth Option (Level <span id="nextRebirthLevel">1</span>)</h3>
+            <p id="rebirthCostDisplay">Cost: $100,000,000</p>
+            <p id="rebirthRewardDisplay">Reward: **+2x Permanent Cash Multiplier**</p>
+            <button id="rebirthButton" onclick="doRebirth()">
+                REBIRTH NOW
+            </button>
+            <p id="rebirthMessage" style="color: yellow;"></p>
+        </div>
+
+        <div id="nameChangeContainer">
+            <h3>Change Username (1/hour)</h3>
+            <input type="text" id="newNameInput" placeholder="Enter new name" maxlength="20">
+            <button onclick="changeUsername()">Change Name</button>
+            <p id="nameError" style="color: red;"></p>
+        </div>
+    </div>
+</div>
+
+<div id="leaderboardModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeModal('leaderboardModal')">&times;</span>
+        <h2>🏆 Local Leaderboard</h2>
+        <p>This leaderboard simulates global data using your local browser storage. Refreshing the page will load your best save!</p>
+        <div id="leaderboardContent"></div>
+    </div>
+</div>
+
+
+<script>
+    // --- Game State Variables ---
+    let username = `Miner${Math.floor(Math.random() * 10000)}`;
+    let cash = 0;
+    let clicks = 0;
+    const clicksToMine = 3;
+    let currentPickaxe = 'Wooden Pickaxe';
+    let pickaxeMultiplier = 1.0; 
+    let rebirthMultiplier = 1.0; 
+    let rebirthLevel = 0; 
+    let oddsMultiplier = 1.0; 
+    let hasStone = false;
+    let hasCoal = false;
+    let coalBonus = 1.0;
+    let gameStartTime = Date.now();
+    let nameChangeCooldown = 0; 
+
+    const GAME_KEY = 'incrementalMinerSave';
+    const COOLDOWN_KEY = 'nameCooldown';
+    const LEADERBOARD_KEY = 'localLeaderboard';
+
+    // --- REBIRTH TIERS DEFINITION ---
+    // [Cost, Cash_Multiplier, Odds_Multiplier]
+    const REBIRTH_TIERS = [
+        [100000000, 2, 0],              // Rebirth 1: 100M, 2x Cash
+        [500000000, 2, 0],              // Rebirth 2: 500M, 2x Cash (Total 4x)
+        [2500000000, 2, 0],             // Rebirth 3: 2.5B, 2x Cash (Total 8x)
+        [10000000000, 2, 0],            // Rebirth 4: 10B, 2x Cash (Total 16x)
+        [1000000000000, 2, 0],          // Rebirth 5: 1T, 2x Cash (Total 32x)
+        [10000000000000000, 1000, 100]  // Rebirth 6 (Max): 10Q, 1000x Cash, 100x Odds (Total 32,000x Cash, 100x Odds)
+    ];
+
+    // --- Ore Definitions (Value and Drop Rate) ---
+    const ores = [
+        { name: 'Stone', rate: 2, value: 10, color: 'gray' },
+        { name: 'Coal', rate: 5, value: 50, color: 'darkgray' },
+        { name: 'Gold', rate: 10, value: 100, color: 'gold' },
+        { name: 'Ruby', rate: 30, value: 300, color: 'red' },
+        { name: 'Diamond', rate: 100, value: 1000, color: 'cyan' },
+        { name: 'Emerald', rate: 50000, value: 500000, color: 'lime' },
+        { name: 'God Ore', rate: 1000, value: 15000, color: 'yellow' },
+        { name: 'INFINITY ORE', rate: 5000, value: 100000, color: 'magenta' },
+        { name: 'ALPHA-NULL-INFINITY ORE', rate: 10000, value: 500000, color: 'white' },
+        { name: 'SECRET ALPHA NULL INFINITY CUBE ORE', rate: 50000, value: 5000000, color: 'purple' },
+        { name: 'INSANE ORE', rate: 9999999, value: 100000000, color: 'orange' } 
+    ];
+
+    // --- Pickaxe Definitions (Price, Cash Multiplier, and Odds Multiplier ADDITION) ---
+    const pickaxes = [
+        { name: 'Wooden Pickaxe', price: 0, cashMultiplier: 1.0, oddsBoost: 0.0, bought: true },
+        { name: 'Stone Pickaxe', price: 50, cashMultiplier: 1.5, oddsBoost: 0.0, bought: false },
+        { name: 'Gold Pickaxe', price: 250, cashMultiplier: 2.5, oddsBoost: 0.0, bought: false },
+        { name: 'Diamond Pickaxe', price: 600, cashMultiplier: 4.0, oddsBoost: 0.0, bought: false },
+        { name: 'Ruby Pickaxe', price: 1500, cashMultiplier: 7.0, oddsBoost: 0.0, bought: false },
+        { name: 'Divine Pickaxe', price: 5000, cashMultiplier: 12.0, oddsBoost: 0.0, bought: false },
+        { name: 'Rainbow Pickaxe', price: 10000, cashMultiplier: 20.0, oddsBoost: 0.0, bought: false },
+        { name: 'God Pickaxe', price: 100000, cashMultiplier: 60.0, oddsBoost: 2.0, bought: false },
+        { name: 'Aura Pickaxe', price: 1000000, cashMultiplier: 600.0, oddsBoost: 3.0, bought: false },
+        { name: 'Insane Aura Pickaxe', price: 10000000, cashMultiplier: 60000.0, oddsBoost: 10.0, bought: false }
+    ];
+    
+    // Store the original state of pickaxes to use for resets
+    const initialPickaxeState = JSON.parse(JSON.stringify(pickaxes));
+
+    // --- DOM Elements ---
+    const cashElement = document.getElementById('cash');
+    const clicksLeftElement = document.getElementById('clicksLeft');
+    const mineButton = document.getElementById('mineButton');
+    const logElement = document.getElementById('log');
+    const upgradesListElement = document.getElementById('upgradesList');
+    const currentPickaxeElement = document.getElementById('currentPickaxe');
+    const pickaxeMultiplierElement = document.getElementById('pickaxeMultiplier');
+    const oddsMultiplierElement = document.getElementById('oddsMultiplier');
+    const coalBonusStatusElement = document.getElementById('coalBonusStatus');
+    const usernameDisplayElement = document.getElementById('usernameDisplay');
+    const rebirthMultiplierDisplay = document.getElementById('rebirthMultiplierDisplay');
+    const rebirthLevelDisplay = document.getElementById('rebirthLevelDisplay');
+
+    // --- Utility Functions ---
+
+    function formatTime(ms) {
+        const seconds = Math.floor(ms / 1000);
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const remainingSeconds = seconds % 60;
+        return `${hours}h ${minutes}m ${remainingSeconds}s`;
+    }
+
+    function calculateOddsMultiplier() {
+        let cumulativeOddsBoost = 0;
+        let baseOddsMultiplier = 1.0;
+
+        // Apply Rebirth 6 Multiplier
+        if (rebirthLevel === 6) {
+            baseOddsMultiplier = REBIRTH_TIERS[5][2]; // 100x from the final tier
+        }
+
+        // Apply Pickaxe Odds Boosts
+        pickaxes.forEach(p => {
+            if (p.bought && p.name !== 'Wooden Pickaxe') {
+                cumulativeOddsBoost += p.oddsBoost;
+            }
+        });
+        
+        // Final Odds Multiplier is a combination of the base (which might be 1 or 100) 
+        // and the pickaxe progression bonus
+        return baseOddsMultiplier * (1.0 + (0.5 * pickaxes.filter(p => p.bought && p.name !== 'Wooden Pickaxe').length) + cumulativeOddsBoost);
+    }
+    
+    function calculateRebirthMultiplier() {
+        let multiplier = 1.0;
+        for (let i = 0; i < rebirthLevel; i++) {
+            multiplier *= REBIRTH_TIERS[i][1]; 
+        }
+        return multiplier;
+    }
+
+    // --- Core Game Functions ---
+
+    function updateStats() {
+        // Recalculate rebirth multiplier based on level
+        rebirthMultiplier = calculateRebirthMultiplier();
+        
+        // Use toLocaleString for comma formatting on display
+        cashElement.textContent = cash.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        clicksLeftElement.textContent = clicksToMine - clicks;
+        currentPickaxeElement.textContent = currentPickaxe;
+        
+        const totalCashMultiplier = pickaxeMultiplier * rebirthMultiplier;
+        pickaxeMultiplierElement.textContent = totalCashMultiplier.toFixed(1);
+        
+        oddsMultiplier = calculateOddsMultiplier(); 
+        oddsMultiplierElement.textContent = oddsMultiplier.toFixed(2);
+        
+        coalBonusStatusElement.textContent = `Coal Bonus: ${coalBonus > 1.0 ? 'ACTIVE' : 'Disabled'}`;
+        usernameDisplayElement.textContent = username;
+        
+        rebirthMultiplierDisplay.textContent = rebirthMultiplier.toFixed(1);
+        rebirthLevelDisplay.textContent = rebirthLevel;
+    }
+
+    function logMessage(message, color = '#eee', isGlobal = false) {
+        const entry = document.createElement('p');
+        entry.innerHTML = message;
+        entry.style.color = color;
+        
+        if (isGlobal) {
+            entry.classList.add('global-event');
+            logElement.insertBefore(entry, logElement.firstChild);
+        } else {
+            logElement.prepend(entry);
+        }
+
+        if (logElement.children.length > 50) {
+             logElement.removeChild(logElement.lastChild);
+        }
+    }
+
+    function attemptMine() {
+        const roll = Math.random();
+        let minedOre = null;
+
+        for (let i = ores.length - 1; i >= 0; i--) {
+            const ore = ores[i];
+            // The odds multiplier is now applied directly to the chance roll.
+            const effectiveProbability = Math.min(1.0, oddsMultiplier / ore.rate); 
+
+            if (roll < effectiveProbability) {
+                minedOre = ore;
+                break;
+            }
+        }
+
+        if (minedOre) {
+            let baseValue = minedOre.value;
+            let bonusApplied = false;
+
+            if (minedOre.name === 'Stone') {
+                hasStone = true;
+            } else if (minedOre.name === 'Coal') {
+                if (hasStone && coalBonus === 1.0) {
+                    coalBonus = 1.5;
+                    logMessage(`💥 COAL BONUS ACTIVATED! All non-Stone ores are now worth ${coalBonus}x!`, 'orange');
+                }
+                hasCoal = true;
+            }
+
+            if (coalBonus > 1.0 && minedOre.name !== 'Stone') {
+                baseValue *= coalBonus;
+                bonusApplied = true;
+            }
+
+            const totalCashMultiplier = pickaxeMultiplier * rebirthMultiplier;
+            const totalValue = baseValue * totalCashMultiplier;
+            cash += totalValue;
+
+            const bonusMsg = bonusApplied ? ` (+${(coalBonus * 100 - 100).toFixed(0)}% Coal Bonus)` : '';
+            
+            if (minedOre.name === 'INSANE ORE') {
+                const globalMessage = `⭐ GLOBAL EVENT TRIGGERED! ${username} JUST MINED THE INSANE ORE! EARNING $${totalValue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}! ⭐`;
+                logMessage(globalMessage, 'white', true);
+            }
+            
+            logMessage(`You mined **${minedOre.name}**! Earned $${totalValue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} (Total x${totalCashMultiplier.toFixed(1)}${bonusMsg})`, minedOre.color);
+        } else {
+            logMessage(`You swung and found nothing!`, '#777');
+        }
+    }
+
+    function handleMine() {
+        clicks++;
+        if (clicks >= clicksToMine) {
+            clicks = 0;
+            attemptMine();
+        }
+        updateStats();
+        renderUpgrades(); 
+        updateRebirthButtonState(); 
+    }
+    
+    function equipPickaxe(pickaxeIndex) {
+        const pickaxe = pickaxes[pickaxeIndex];
+
+        if (pickaxe.bought) {
+            currentPickaxe = pickaxe.name;
+            pickaxeMultiplier = pickaxe.cashMultiplier; 
+            logMessage(`Equipped **${pickaxe.name}**! New base cash multiplier: x${pickaxe.cashMultiplier.toFixed(1)}.`, '#4CAF50');
+            renderUpgrades(); 
+            updateStats();
+            saveGame(false); 
+        }
+    }
+
+    function purchasePickaxe(pickaxeIndex) {
+        const pickaxe = pickaxes[pickaxeIndex];
+
+        // Ensure we are comparing two numbers safely
+        if (Number(cash) >= Number(pickaxe.price) && !pickaxe.bought) {
+            
+            cash -= pickaxe.price;
+            pickaxe.bought = true;
+            
+            equipPickaxe(pickaxeIndex);
+
+            logMessage(`Purchased **${pickaxe.name}**! Your total odds are now increased!`, 'lime');
+            renderUpgrades();
+        }
+    }
+
+    function renderUpgrades() {
+        upgradesListElement.innerHTML = '';
+        pickaxes.forEach((p, index) => {
+            
+            const item = document.createElement('div');
+            item.className = 'upgrade-item';
+            
+            let oddsBoostText = '';
+            if (!p.bought) {
+                const totalNextOddsIncrease = 0.5 + p.oddsBoost; 
+                oddsBoostText = ` (Odds: +${totalNextOddsIncrease.toFixed(1)}x boost)`;
+            }
+
+            const isEquipped = p.name === currentPickaxe;
+            const totalCashMultiplier = p.cashMultiplier * rebirthMultiplier;
+
+
+            let buttonHTML;
+
+            if (p.bought) {
+                buttonHTML = `<button class="equip-button ${isEquipped ? 'equipped' : ''}" 
+                                      onclick="equipPickaxe(${index})" 
+                                      ${isEquipped ? 'disabled' : ''}>
+                                ${isEquipped ? 'EQUIPPED' : 'Equip'}
+                              </button>`;
+            } else {
+                // Fixed: Use Number() to ensure comparison is robust even for large numbers.
+                const canAfford = Number(cash) >= Number(p.price);
+                const priceFormatted = p.price.toLocaleString();
+                
+                buttonHTML = `<button 
+                                onclick="purchasePickaxe(${index})" 
+                                ${canAfford ? '' : 'disabled'}>
+                                ${canAfford ? `BUY ($${priceFormatted})` : `Too Expensive ($${priceFormatted})`}
+                              </button>`;
+            }
+
+            item.innerHTML = `
+                <span>
+                    ${p.name} (Total Cash x${totalCashMultiplier.toFixed(1)})
+                    <br>
+                    <small>Price: ${p.price > 0 ? `$${p.price.toLocaleString()}` : 'FREE'}${oddsBoostText}</small>
+                </span>
+                <div class="action-buttons">${buttonHTML}</div>
+            `;
+            upgradesListElement.appendChild(item);
+        });
+    }
+
+    // --- REBIRTH LOGIC ---
+    function doRebirth() {
+        const messageElement = document.getElementById('rebirthMessage');
+        const nextLevel = rebirthLevel + 1;
+
+        if (nextLevel > REBIRTH_TIERS.length) {
+            messageElement.textContent = `You have reached the maximum Rebirth Level (${REBIRTH_TIERS.length})!`;
+            messageElement.style.color = 'yellow';
+            return;
+        }
+
+        const [cost, cashRewardMultiplier, oddsRewardMultiplier] = REBIRTH_TIERS[rebirthLevel];
+
+        if (Number(cash) < Number(cost)) {
+            messageElement.textContent = `Need $${cost.toLocaleString()} to Rebirth!`;
+            messageElement.style.color = 'red';
+            return;
+        }
+
+        // 1. Apply Reward
+        cash -= cost;
+        rebirthLevel = nextLevel; // Increment level
+        
+        // rebirthMultiplier will be recalculated by updateStats()
+
+        let rewardMessage = `✨ REBIRTH ${rebirthLevel} SUCCESSFUL! Your cash resets.`;
+        if (rebirthLevel < 6) {
+             rewardMessage += ` New permanent cash multiplier applied!`;
+        } else if (rebirthLevel === 6) {
+             rewardMessage += ` You unlocked the **ULTIMATE BOOST** (x1000 cash, x100 odds)!`;
+        }
+        
+        logMessage(rewardMessage, '#ff4500', true);
+
+        // 2. Reset Progression
+        cash = 0;
+        clicks = 0;
+        hasStone = false;
+        hasCoal = false;
+        coalBonus = 1.0;
+
+        for (let i = 0; i < pickaxes.length; i++) {
+            pickaxes[i].bought = initialPickaxeState[i].bought;
+        }
+        
+        equipPickaxe(0);
+
+        // 3. Update UI and Save
+        messageElement.textContent = `Rebirth Level ${rebirthLevel} Complete! Power up again!`;
+        messageElement.style.color = 'lime';
+        
+        renderUpgrades();
+        updateStats();
+        saveGame();
+        
+        updateRebirthButtonState();
+    }
+    
+    function updateRebirthButtonState() {
+        const rebirthButton = document.getElementById('rebirthButton');
+        const messageElement = document.getElementById('rebirthMessage');
+        const nextLevel = rebirthLevel + 1;
+
+        const nextLevelDisplay = document.getElementById('nextRebirthLevel');
+        const costDisplay = document.getElementById('rebirthCostDisplay');
+        const rewardDisplay = document.getElementById('rebirthRewardDisplay');
+
+        if (nextLevel > REBIRTH_TIERS.length) {
+            rebirthButton.disabled = true;
+            rebirthButton.textContent = 'MAX REBIRTH LEVEL';
+            if (nextLevelDisplay) nextLevelDisplay.textContent = 'MAX';
+            if (costDisplay) costDisplay.textContent = 'Cost: N/A';
+            if (rewardDisplay) rewardDisplay.textContent = 'Reward: MAXED OUT';
+            return;
+        }
+
+        const [cost, cashRewardMultiplier, oddsRewardMultiplier] = REBIRTH_TIERS[rebirthLevel];
+        
+        // Calculate the next total multiplier
+        const nextTotalCashMultiplier = calculateRebirthMultiplier() * cashRewardMultiplier;
+
+        if (nextLevelDisplay) nextLevelDisplay.textContent = nextLevel;
+        if (costDisplay) costDisplay.textContent = `Cost: $${cost.toLocaleString()}`;
+        
+        if (nextLevel === 6) {
+             if (rewardDisplay) rewardDisplay.textContent = `Reward: **ULTIMATE BOOST** (Total Cash x${nextTotalCashMultiplier.toLocaleString()}, +100x Odds)`;
+        } else {
+             if (rewardDisplay) rewardDisplay.textContent = `Reward: **x${cashRewardMultiplier} Permanent Cash Multiplier** (Total x${nextTotalCashMultiplier.toLocaleString()})`;
+        }
+
+
+        if (Number(cash) >= Number(cost)) {
+            rebirthButton.disabled = false;
+            rebirthButton.textContent = `REBIRTH TO LEVEL ${nextLevel}`;
+            if (messageElement) {
+                messageElement.textContent = `Ready for Rebirth ${nextLevel}?`;
+                messageElement.style.color = 'lime';
+            }
+        } else {
+            rebirthButton.disabled = true;
+            const needed = (cost - cash).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            rebirthButton.textContent = `Need $${cost.toLocaleString()}`;
+            if (messageElement) {
+                messageElement.textContent = `You need $${needed} more for Rebirth ${nextLevel}.`;
+                messageElement.style.color = 'yellow';
+            }
+        }
+    }
+
+    // --- Modal Functions (Unchanged) ---
+
+    function showStatsModal() {
+        document.getElementById('statsModal').style.display = 'block';
+        document.getElementById('statsName').textContent = username;
+        document.getElementById('statsCash').textContent = cash.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        document.getElementById('statsPickaxe').textContent = currentPickaxe;
+        document.getElementById('statsRebirthLevel').textContent = rebirthLevel;
+        document.getElementById('statsRebirthMultiplier').textContent = rebirthMultiplier.toFixed(1);
+        document.getElementById('timePlayed').textContent = formatTime(Date.now() - gameStartTime);
+        document.getElementById('saveMessage').textContent = '';
+
+        updateNameChangeUI();
+        updateRebirthButtonState();
+    }
+
+    function showLeaderboardModal() {
+        document.getElementById('leaderboardModal').style.display = 'block';
+        renderLeaderboard();
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    // --- Stats / Name Change Logic (Unchanged) ---
+
+    function updateNameChangeUI() {
+        const errorElement = document.getElementById('nameError');
+        const changeButton = document.querySelector('#nameChangeContainer button');
+        const now = Date.now();
+        const cooldownRemaining = nameChangeCooldown - now;
+
+        if (cooldownRemaining > 0) {
+            const timeRemaining = formatTime(cooldownRemaining);
+            errorElement.style.color = 'yellow';
+            errorElement.textContent = `Next name change available in: ${timeRemaining}`;
+            changeButton.disabled = true;
+        } else {
+            errorElement.style.color = 'green';
+            errorElement.textContent = 'You can change your name now.';
+            changeButton.disabled = false;
+        }
+    }
+
+    function changeUsername() {
+        const newNameInput = document.getElementById('newNameInput');
+        const newName = newNameInput.value.trim();
+        const errorElement = document.getElementById('nameError');
+
+        if (!newName) {
+            errorElement.style.color = 'red';
+            errorElement.textContent = 'Name cannot be empty.';
+            return;
+        }
+
+        if (Date.now() < nameChangeCooldown) {
+            updateNameChangeUI(); 
+            return;
+        }
+
+        let leaderboard = JSON.parse(localStorage.getItem(LEADERBOARD_KEY)) || [];
+        
+        const nameTaken = leaderboard.some(entry => entry.username.toLowerCase() === newName.toLowerCase() && entry.username !== username);
+
+        if (nameTaken) {
+            errorElement.style.color = 'red';
+            errorElement.textContent = 'That username is already taken (on this local machine).';
+        } else {
+            username = newName;
+            newNameInput.value = '';
+            nameChangeCooldown = Date.now() + (60 * 60 * 1000); 
+            localStorage.setItem(COOLDOWN_KEY, nameChangeCooldown);
+            
+            errorElement.style.color = 'lime';
+            errorElement.textContent = `Name changed to ${username}! Cooldown started.`;
+            
+            updateStats();
+            saveGame();
+            updateNameChangeUI();
+        }
+    }
+
+    // --- Leaderboard Logic (Unchanged) ---
+    function updateLeaderboard(currentSave) {
+        let leaderboard = JSON.parse(localStorage.getItem(LEADERBOARD_KEY)) || [];
+
+        leaderboard = leaderboard.filter(entry => entry.username !== currentSave.username);
+        
+        leaderboard.push({
+            username: currentSave.username,
+            cash: currentSave.cash,
+            pickaxe: currentSave.currentPickaxe
+        });
+
+        leaderboard.sort((a, b) => b.cash - a.cash);
+
+        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
+    }
+
+    function renderLeaderboard() {
+        let leaderboard = JSON.parse(localStorage.getItem(LEADERBOARD_KEY)) || [];
+        const content = document.getElementById('leaderboardContent');
+
+        if (leaderboard.length === 0) {
+            content.textContent = "No leaderboard data yet. Save your game to appear!";
+            return;
+        }
+
+        let output = "Rank | Username             | Cash ($)             | Pickaxe\n";
+        output += "----------------------------------------------------------------\n";
+
+        leaderboard.forEach((entry, index) => {
+            const rank = index + 1;
+            const name = entry.username.padEnd(20);
+            const cashVal = entry.cash.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",").padStart(20); 
+            const pick = entry.pickaxe;
+
+            output += `${rank.toString().padEnd(4)} | ${name} | ${cashVal} | ${pick}\n`;
+        });
+
+        content.textContent = output;
+    }
+
+    // --- Save/Load Logic ---
+
+    function saveGame(showMsg = true) {
+        const gameState = {
+            username,
+            cash,
+            currentPickaxe, 
+            pickaxes: pickaxes.map(p => ({ name: p.name, bought: p.bought })),
+            hasStone,
+            hasCoal,
+            coalBonus,
+            gameStartTime,
+            rebirthLevel, // <-- NOW SAVING REBIRTH LEVEL
+        };
+
+        try {
+            localStorage.setItem(GAME_KEY, JSON.stringify(gameState));
+            updateLeaderboard(gameState);
+            if (showMsg) {
+                document.getElementById('saveMessage').textContent = `Progress Saved Successfully at ${new Date().toLocaleTimeString()}!`;
+            }
+            if (showMsg) {
+                logMessage('Game progress saved.', 'yellow');
+            }
+        } catch (e) {
+            if (showMsg) {
+                 document.getElementById('saveMessage').textContent = 'Error saving progress: Local Storage full or unavailable.';
+            }
+            console.error("Could not save game:", e);
+        }
+    }
+
+    function loadGame() {
+        const savedState = localStorage.getItem(GAME_KEY);
+        const savedCooldown = localStorage.getItem(COOLDOWN_KEY);
+
+        if (savedState) {
+            const state = JSON.parse(savedState);
+
+            username = state.username || `Miner${Math.floor(Math.random() * 10000)}`;
+            cash = state.cash || 0;
+            currentPickaxe = state.currentPickaxe || 'Wooden Pickaxe';
+            hasStone = state.hasStone || false;
+            hasCoal = state.hasCoal || false;
+            coalBonus = state.coalBonus || 1.0;
+            gameStartTime = state.gameStartTime || Date.now();
+            rebirthLevel = state.rebirthLevel || 0; // <-- NOW LOADING REBIRTH LEVEL
+
+            // Rebirth Multiplier is calculated from the Level on load.
+
+            if (state.pickaxes) {
+                state.pickaxes.forEach(savedP => {
+                    const index = pickaxes.findIndex(p => p.name === savedP.name);
+                    if (index !== -1) {
+                        pickaxes[index].bought = savedP.bought;
+                    }
+                });
+            }
+            
+            const equipped = pickaxes.find(p => p.name === currentPickaxe);
+            if (equipped) {
+                pickaxeMultiplier = equipped.cashMultiplier;
+            } else {
+                pickaxeMultiplier = pickaxes[0].cashMultiplier; 
+                currentPickaxe = pickaxes[0].name;
+            }
+            
+            logMessage('Game progress loaded.', 'yellow');
+        }
+
+        if (savedCooldown) {
+            nameChangeCooldown = parseInt(savedCooldown);
+        }
+    }
+
+    // --- Initialization ---
+    function init() {
+        loadGame(); 
+        mineButton.addEventListener('click', handleMine);
+        
+        // Recalculate rebirth multiplier and odds here after loading the level
+        rebirthMultiplier = calculateRebirthMultiplier();
+        oddsMultiplier = calculateOddsMultiplier(); 
+        
+        renderUpgrades();
+        updateStats();
+        logMessage(`Game loaded/started! Permanent Cash Multiplier: x${rebirthMultiplier.toFixed(1)} (Level ${rebirthLevel})`, 'lightblue');
+        
+        // Autosave Listener
+        window.addEventListener('beforeunload', () => {
+            saveGame(false); 
+        });
+    }
+
+</script>
+
+</body>
+</html>
